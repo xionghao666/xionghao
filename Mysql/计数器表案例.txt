@@ -1,0 +1,25 @@
+例如统计网站的点击次数
+
+创建表：CREATE TABLE hit_counter (int int unsigned not null) ENGINE=InoDB;
+
+网站每点击一次更新记录：UPDATE hit_counter SET cnt = int + 1;
+
+对于任何想要更新这一行的事务来说，存在全局互斥锁，只能串行执行，不能同时执行。
+要想获得更高的并发性能重新设计表：
+CREATE TABLE hit_counter (slot tinyint unsigned not null primary key, cnt int 
+ unsigned not null) ENGINE=InoDB;
+
+使用两个字段来记录，同时预先增加100条记录
+
+更新的时候随机选择一个slot进行更新：
+UPDATE hit_counter SET cnt = cnt + 1 WHERE slot = RAND()*100;
+
+统计的时候使用聚合查询：SELECT SUM(cnt) FROM hit_counter;
+
+INSERT ...... ON DUPLICATE KEY 
+
+例子：
+
+INSERT INTO t1 (a,b,c) VALUES (1,2,3) ON DUPLICATE KEY UPDATE c=c+1;
+
+如上sql假如t1表的主键或者UNIQUE 索引是a，那么当执行上面sql时候，如果数据库里面已经存在a=1的记录则更新这条记录的c字段的值为原来值+1，然后返回值为2。如果不存在则插入a=1,b=2,c=3到数据库，然后返回值为1。

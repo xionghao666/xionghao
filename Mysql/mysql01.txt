@@ -1,0 +1,73 @@
+一行代码，根据mysql每秒将当前时间写入日志中的模式统计每秒的查询数量：
+ ：awk '/^# Time:/{print $3, $4, c;c=0}/^# User/{c++}' slow-query.log
+
+可视化数据最具有说服力，可以选择用 gnuplot 或 R ,或者其他绘图工具将结果绘制成图形。
+诊断问题是先使用 SHOW STATUS 或 SHOW PROCESSLIST ，这两种方法开销很低。
+
+捕获诊断数据
+1.一个可靠且实时的“触发器”，也就是能区分什么时候问题出现的方法
+2.一个收集诊断数据的工具
+
+需要收集什么样的数据
+尽可能收集所有能收集的数据，包括系统的状态，CPU利用率，磁盘使用率，可用空间，ps的输出采样，内存利用率，以及
+可以从mysql获得的信息。如 SHOW STATUS, SHOW PROCESSLIST, SHOW INNODB STATUS
+
+在GUN/Linux平台，可用于服务器内部诊断的一个重要工具是oprofile
+也可以使用strace剖析服务器的系统调用。如果要剖析查询可以使用 tcpdump。
+
+对于等待分析常用的方法是GDB的堆栈跟踪。
+跟踪的过程是先启动gdb,然后附加（attach）到mysqld进程，将所有的线程的堆栈都转储出来。然后可以利用一些简短的
+脚本将类似的堆栈跟踪信息做汇总，在利用 sort|uniq|sort 的魔法排序出总计最多的堆栈信息。
+也可以使用 SHOW PROCESSLIST 和 SHOW INNODB STATUS 的快照信息观察线程和事务的状态来进行等待分析
+
+收集所有的数据使用工具 pt-collect 也是Percona Toolkit 中的一员
+也可以将Percona Toolkit中的另外两款工具 pt-mysql-summary 和 pt-summary 的输出结果打包提供给技术专家
+
+选择优化的数据类型
+更小的通常更好，应该尽量使用可以正确存储数据的最小数据类型。因为它们占用更少的磁盘，内存，CPU缓存
+并且处理时需要更少的CPU周期
+
+尽量避免null,可为null的列使得索引，索引统计和值比较都更复杂。
+
+DATETIME 和 TIMESAMP 都可以存储相同的类型数据：日期，时间精确到秒
+然而TIMESAMP只使用DATETIME一半的存储空间，并且会根据时区变化，具有特殊的自动更新能力。
+
+整数类型
+有两种类型的数字：整数(whole number) 和 实数(real number)
+整数类型：TINYINT, SMALLINT, MEDIUMINT, INT, BIGINT
+分别使用 8， 16， 32，64 位存储空间
+UNSIGNED属性表示不允许有负值，这大致可以使正数的上限范围提高一倍。
+
+实数类型
+实数时带有小数部分的数字。可以使用DECIMAL存储比BIGINT还大的整数。
+
+DECIMAL 和 浮点数都可以指定精度。
+
+DECIMAL只是一种存储格式，在计算中DECIMAL会转换为DOUBLE类型
+浮点类型在存储同样的范围的值时，通常比DECIMAL使用更少的空间
+Mysql使用DOUBLE作为内部浮点计算的类型
+
+因为需要额外的空间和计算开销所以应该在对小数进行精确计算的时候才使用decimal
+例如财务数据，数据量较大的时候可考虑使用bigint,也可以使用倍数存储的方式
+
+字符串类型
+varchar类型用于存储可变长字符串，他比定长类型更加节省空间。varchar需要使用1或2个额外字节
+记录字符串的长度。varchar(1000)的列则需要1002个字节。因为需要2个字节存储长度信息
+
+char类型是定长的：当存储char值时mysql会删除所有的末尾空格
+
+char适合存储很短的字符串，或者所有值都接近同一个长度。例如用char来记录 Y或者N 是一个字节，varchar是2个字节
+
+varchar不会清楚字符串末尾的空格，memory引擎只支持定长的行
+
+与varchar和char类似的类型还有binary和varbinary，它们存储的是二进制的字符串
+二进制字符串存储的是字节码而不是字符串
+mysql比较binary字符串时每次按一个字节，并且根据该字节的数值进行比较，因此二进制比较比字符简单很多
+所以更快
+
+使用varch(5)和varchar(200)存储 ‘hello’ 空间开销是一样的，但varchar(5)更有优势
+更长的列会消耗更多的内存，因为mysql通常会分配固定大小的内存块来保存内部值。
+尤其是使用内存临时表进行排序或操作时会特别糟糕，在利用磁盘临时表进行排序时也同样糟糕
+
+
+
