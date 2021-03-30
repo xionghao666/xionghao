@@ -1,0 +1,76 @@
+正向代理：在客户端配置代理服务器进行网络访问，对于客户端来说是可察觉的
+
+反向代理：客户端对于反向代理服务器是无感知的(客户端不需要进行任何配置)，对外暴露的就是一个服务器(暴露代理服务器，隐藏真实IP)
+
+负载均衡：将请求平均的分发到多个服务器上
+
+动静分离：把动态资源(jsp,servlet)和静态资源(js,css)分开部署，也就是资源重定向
+
+./nginx -s stop 关闭nginx
+./nginx -s reload 重新加载配置文件
+
+nginx配置文件组成
+1. 全局块
+2.events块
+3.http块
+
+全局块：设置一些影响nginx整体运行到指令，例如 worker_Press 值越大可支持的并发越多
+
+events: nginx和用户的网络连接， 例如 worker_connectiongs 1024; 支持最大连接数
+
+http: 包含http全局块和server块
+http全局指令包括文件引入，MIME-TYPE，日志定义，连接超时时间，单连接请求上限
+
+server块：和虚拟主机密切关系 包含全局server和location块
+
+反向代理：在location 块中添加 proxy_pass www.xxxx.com
+需要开放对外访问端口
+
+
+
+负载均衡：
+upstream myserver {
+   server ip:port
+   server ip:port
+}
+
+location中加入 ： proxy_pass http://myserver
+
+负载均衡方式：
+1. 轮循(默认) 按照时间逐一分配，能够自动剔除死机的服务器
+2. weight 权重设置，值越大分配访问的概率越大
+3. ip_hash 每个请求的IP进行HASH 然后通过hash结果分配，同一个ip始终访问同一个服务器，可解决session共享问题
+4. fair   按照后端响应时间来分配，速度越快越优先
+
+动静分离：主流方式是静态资源转发到独立域名，或通过location指定不同后缀名实现请求转发，可以利用 expires参数设置浏览器缓存过期时间 (304状态码表示用的是缓存)
+
+nginx高可用集群配置
+如果nginx挂掉了那么所有请求也就中断了
+使用keepalived检测nginx状态
+修改keepalived.conf 并且编写检测nginx的shell脚本
+绑定虚拟ip 映射主从服务器
+
+nginx 原理： 一个master进程， 多个worker进程，master进程分配工作给worker, worker使用争抢机制去处理任务
+
+master-worker 机制优点
+1. 有利于热机部署， -s reload
+2. 独立worker进程，其中一个挂里其他worker进程不受影响
+
+需要设置多少个worker, 一般worker数和cpu数量相等
+
+一个请求占用几个连接数 worker_connection 
+一个连接占有2个或者4个连接数，看请求是否和后端有交互还是直接重定向走
+
+最大并发数：普通静态资源 worker_connections*worker_process / 4
+          反向代理     worker_connections*worker_process / 2
+
+
+
+
+
+
+
+
+
+
+
