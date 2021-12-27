@@ -1,0 +1,48 @@
+
+在很多RPC的设计中，都采用了高性能的编解码技术，Protocol Buffers就属于其中的佼佼者。
+Protocol Buffers是Google开源的一个语言无关、平台无关的通信协议，其小巧、高效和友好的兼容性设计，使其被广泛使用。
+
+核心特点：
+语言无关、平台无关
+简洁
+高性能
+良好的兼容性
+
+编辑器按照（protoc）
+https://github.com/protocolbuffers/protobuf/releases
+解压后拷贝到GOPATH/bin目录下
+
+安装生成Go语言代码的工具
+go get -u github.com/golang/protobuf/protoc-gen-go
+
+
+
+
+.proto文件语法指南：https://colobu.com/2017/03/16/Protobuf3-language-guide/
+
+
+案例：
+================================================================
+syntax = "proto3"; // 版本声明，使用Protocol Buffers v3版本
+
+package pb; // 包名
+
+
+// 定义一个打招呼服务
+service Greeter {
+    // SayHello 方法
+    rpc SayHello (HelloRequest) returns (HelloReply) {}
+}
+
+// 包含人名的一个请求消息
+message HelloRequest {
+    string name = 1;
+}
+
+// 包含问候语的响应消息
+message HelloReply {
+    string message = 1;
+}
+================================================================
+
+使用命令生成golang代码：protoc --go_out=plugins=grpc:. sample.proto

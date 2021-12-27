@@ -1,0 +1,94 @@
+docker pull centos:centos7
+
+docker images
+
+docker run -itd -p 8080:8080 --name local centos:centos7
+
+本容器于宿主机对应两个端口，并且与容器mysql1互连
+
+docker run -itd -p 5920:5920 -p 5921:59921 --privileged=true
+-v D:/go/src:/home/gopath/
+--name local --link mysql1 centos:centos7
+
+docker exec -it local /bin/bash
+
+docker ps 查看容器运行情况
+
+docker commit local newlocal //将容器提交成为新的镜像
+
+docker rm local //删除原来的镜像
+
+
+
+$docker pull quay.io/coreos/etcd:v3.3.1
+
+
+##创建一个新的bridge网络
+$docker network create --driver bridge --subnet=10.2.36.0/16 --gateway=10.2.1.1 mynet2
+##查看网络列表
+$docker network ls
+
+
+
+docker run -d \
+-p 2479:2379 \
+-p 2381:2380 \
+--name node1 \
+--network=mynet2 \
+--ip 10.2.36.1 \
+quay.io/coreos/etcd:v3.3.1 \
+etcd \
+-name node1 \
+-advertise-client-urls http://10.2.36.1:2379 \
+-initial-advertise-peer-urls http://10.2.36.1:2380 \
+-listen-client-urls http://0.0.0.0:2379 -listen-peer-urls http://0.0.0.0:2380 \
+-initial-cluster-token etcd-cluster \
+-initial-cluster "node1=http://10.2.36.1:2380,node2=http://10.2.36.2:2380,node3=http://10.2.36.3:2380" \
+-initial-cluster-state new
+
+
+docker run -d -p 2479:2379 -p 2381:2380 --name node1 --network=mynet2 --ip 10.2.36.1 quay.io/coreos/etcd:v3.3.1 etcd -name node1 -advertise-client-urls http://10.2.36.1:2379 -initial-advertise-peer-urls http://10.2.36.1:2380 -listen-client-urls http://0.0.0.0:2379 -listen-peer-urls http://0.0.0.0:2380 -initial-cluster-token etcd-cluster -initial-cluster "node1=http://10.2.36.1:2380,node2=http://10.2.36.2:2380,node3=http://10.2.36.3:2380" -initial-cluster-state new
+
+
+docker run -d \
+-p 2579:2379 \
+-p 2382:2380 \
+--name node2 \
+--network=mynet2 \
+--ip 10.2.36.2 \
+quay.io/coreos/etcd:v3.3.1 \
+etcd \
+-name node2 \
+-advertise-client-urls http://10.2.36.2:2379 \
+-initial-advertise-peer-urls http://10.2.36.2:2380 \
+-listen-client-urls http://0.0.0.0:2379 -listen-peer-urls http://0.0.0.0:2380 \
+-initial-cluster-token etcd-cluster \
+-initial-cluster "node1=http://10.2.36.1:2380,node2=http://10.2.36.2:2380,node3=http://10.2.36.3:2380" \
+-initial-cluster-state new
+
+docker run -d -p 2579:2379 -p 2382:2380 --name node2 --network=mynet2 --ip 10.2.36.2 quay.io/coreos/etcd:v3.3.1 etcd -name node2 -advertise-client-urls http://10.2.36.2:2379 -initial-advertise-peer-urls http://10.2.36.2:2380 -listen-client-urls http://0.0.0.0:2379 -listen-peer-urls http://0.0.0.0:2380 -initial-cluster-token etcd-cluster -initial-cluster "node1=http://10.2.36.1:2380,node2=http://10.2.36.2:2380,node3=http://10.2.36.3:2380" -initial-cluster-state new
+
+
+docker run -d \
+-p 2679:2379 \
+-p 2383:2380 \
+--name node3 \
+--network=mynet2 \
+--ip 10.2.36.3 \
+quay.io/coreos/etcd:v3.3.1 \
+etcd \
+-name node3 \
+-advertise-client-urls http://10.2.36.3:2379 \
+-initial-advertise-peer-urls http://10.2.36.3:2380 \
+-listen-client-urls http://0.0.0.0:2379 -listen-peer-urls http://0.0.0.0:2380 \
+-initial-cluster-token etcd-cluster \
+-initial-cluster "node1=http://10.2.36.1:2380,node2=http://10.2.36.2:2380,node3=http://10.2.36.3:2380" \
+-initial-cluster-state new
+
+
+docker run -d -p 2679:2379 -p 2383:2380 --name node3 --network=mynet2 --ip 10.2.36.3 quay.io/coreos/etcd:v3.3.1 etcd -name node3 -advertise-client-urls http://10.2.36.3:2379 -initial-advertise-peer-urls http://10.2.36.3:2380 -listen-client-urls http://0.0.0.0:2379 -listen-peer-urls http://0.0.0.0:2380 -initial-cluster-token etcd-cluster -initial-cluster "node1=http://10.2.36.1:2380,node2=http://10.2.36.2:2380,node3=http://10.2.36.3:2380" -initial-cluster-state new
+
+
+进入etcd容器 ： docker exec -it node1 /bin/sh
+
+

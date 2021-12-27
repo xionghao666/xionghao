@@ -1,0 +1,104 @@
+文章来源 https://cloud.tencent.com/developer/article/1532452
+go get github.com/coreos/etcd/clientv3
+//连接客户端
+cli, err := clientv3.New(clientv3.Config{   Endpoints:[]string{"localhost:2379"},
+	//Endpoints: []string{"localhost:2379", "localhost:22379", "localhost:32379"}
+	DialTimeout: 5 * time.Second,
+})
+
+返回的 client，它的类型具体如下
+type Client struct {
+    Cluster
+    KV
+    Lease
+    Watcher
+    Auth
+    Maintenance
+    // Username is a user name for authentication.
+    Username string
+    // Password is a password for authentication.
+    Password string
+    // contains filtered or unexported fields
+}
+类型中的成员是etcd客户端几何核心功能模块的具体实现，它们分别用于：
+Cluster：向集群里增加etcd服务端节点之类，属于管理员操作。
+KV：我们主要使用的功能，即K-V键值库的操作。
+Lease：租约相关操作，比如申请一个TTL=10秒的租约（应用给key可以实现键值的自动过期）。
+Watcher：观察订阅，从而监听最新的数据变化。
+Auth：管理etcd的用户和权限，属于管理员操作。
+Maintenance：维护etcd，比如主动迁移etcd的leader节点，属于管理员操作。
+
+Client.KV 是一个interface`，提供了关于K-V操作的所有方法：
+
+type KV interface {
+
+    Put(ctx context.Context, key, val string, opts ...OpOption) (*PutResponse, error)
+
+    Get(ctx context.Context, key string, opts ...OpOption) (*GetResponse, error)
+
+    // Delete deletes a key, or optionally using WithRange(end), [key, end).
+    Delete(ctx context.Context, key string, opts ...OpOption) (*DeleteResponse, error)
+
+    // Compact compacts etcd KV history before the given rev.
+    Compact(ctx context.Context, rev int64, opts ...CompactOption) (*CompactResponse, error)
+
+    Do(ctx context.Context, op Op) (OpResponse, error)
+
+    // Txn creates a transaction.
+    Txn(ctx context.Context) Txn
+}
+
+kv := clientv3.NewKV(cli)
+putResp, err := kv.Put(context.TODO(),"/test/key1", "Hello etcd!")
+getResp, err := kv.Get(context.TODO(), "/test/key1")
+
+通过给Get查询增加WithPrefix选项，获取/test目录下的所有子元素
+rangeResp, err := kv.Get(context.TODO(), "/test/", clientv3.WithPrefix())
+
+Lease：
+lease := clientv3.NewLease(cli)
+type Lease interface {
+    // Grant 创建一个新租约
+    Grant(ctx context.Context, ttl int64) (*LeaseGrantResponse, error)
+
+    // Revoke 销毁给定租约ID的租约
+    Revoke(ctx context.Context, id LeaseID) (*LeaseRevokeResponse, error)
+
+    // TimeToLive retrieves the lease information of the given lease ID.
+    TimeToLive(ctx context.Context, id LeaseID, opts ...LeaseOption) (*LeaseTimeToLiveResponse, error)
+
+    // Leases retrieves all leases.
+    Leases(ctx context.Context) (*LeaseLeasesResponse, error)
+
+    // KeepAlive keeps the given lease alive forever.
+    KeepAlive(ctx context.Context, id LeaseID) (<-chan *LeaseKeepAliveResponse, error)
+
+    // KeepAliveOnce renews the lease once. In most of the cases, KeepAlive
+    // should be used instead of KeepAliveOnce.
+    KeepAliveOnce(ctx context.Context, id LeaseID) (*LeaseKeepAliveResponse, error)
+
+    // Close releases all resources Lease keeps for efficient communication
+    // with the etcd server.
+    Close() error
+}
+
+Lease提供了以下功能：
+
+Grant：分配一个租约。
+Revoke：释放一个租约。
+TimeToLive：获取剩余TTL时间。
+Leases：列举所有etcd中的租约。
+KeepAlive：自动定时的续约某个租约。
+KeepAliveOnce：为某个租约续约一次。
+Close：释放当前客户端建立的所有租约。
+
+要想实现key自动过期，首先得创建一个租约，下面的代码创建一个TTL为10秒的租约：
+
+grantResp, err := lease.Grant(context.TODO(), 10)
+在应用程序代码中主要使用到的是租约ID
+用这个Lease往etcd中存储一个10秒过期的key：
+kv.Put(context.TODO(), "/test/vanish", "vanish in 10s", clientv3.WithLease(grantResp.ID))
+
+有一种情况是在Put之前Lease已经过期了，那么这个Put操作会返回error，此时你需要重新分配Lease。
+实现服务注册时，需要主动给Lease进行续约，通常是以小于TTL的间隔循环调用Lease的KeepAliveOnce()方法对租约进行续期，一旦某个服务节点出错无法完成租约的续期，等key过期后客户端即无法在查询服务时获得对应节点的服务
+keepResp, err := lease.KeepAliveOnce(context.TODO(), grantResp.ID)
