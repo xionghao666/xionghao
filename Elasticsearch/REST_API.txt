@@ -1,0 +1,356 @@
+Mapping设置
+Put  localhost:9200/t_product
+{
+      "mappings":{
+       	"properties":{
+                                "product_id": {
+	            "type": "long"
+	        },
+                   "product_code": {
+	            "type": "keyword"
+	        },
+       		      "product_name": {
+	            "type": "text"
+	        },
+                                "product_added": {
+                        "type": "date",
+	            "format": "yyyy-MM-dd HH:mm:ss"
+	        }
+   	}
+     }
+}    
+=================================================================
+索引数据
+Post localhost:9200/t_product/_doc/
+{
+	"product_id":1269,
+	"product_code":"PL0087",
+	"product_added":"2009-11-20 12:24:42",
+	"product_name":"Keolamphone Vongkot Timberland TB1024",
+            "product_attrs": ["men","women","horn", "full-rim" ]
+}
+
+{
+	"product_id":1316,
+	"product_code":"MT0145",
+	"product_added":"2009-10-20 12:24:42",
+	"product_name":"Timberland Emporio Armani -EA9295/S",
+           "product_attrs": ["men","horn", "bifocal" ]
+}
+{
+	"product_id":23938,
+	"product_code":"TT0886",
+	"product_added":"2010-01-20 12:24:42",
+	"product_name":"Clear Rimswith Orange sidearms",
+            "product_attrs": ["women","horn", "progressive" ]
+}
+{
+	"product_id":1001,
+	"product_code":"TT1001",
+	"product_added":"2010-01-20 12:24:42",
+	"product_name":"Clear Rimswith Orange sidearms",
+            "product_attrs": ["women","horn-clear", "progressive" ]
+}
+=================================================================
+查询
+Post  localhost:9200/t_product/_search
+
+
+{
+	"query":{
+		"match":{
+			"product_name":"clear"
+		}
+	}
+}
+=================================================================
+多字段查询
+Post  localhost:9200/t_product/_search
+{
+  "query": {
+    "multi_match" : {
+      "query":    "clear",  
+      "fields": [ "product_attrs", "product_name" ] 
+    }
+  }
+}
+=================================================================
+内部执行multi_match查询的方式取决于type参数，可以将其设置为：
+best_fields：     (默认) 查找与任何字段匹配的文档，使用最佳字段中的权重。
+most_fields：    查找与任何字段匹配的文档，并组合每个字段的权重。
+
+best_fields(当搜索在同一字段中要找多个字词时。 例如，单个字段中的”Peter Smith”比一个字段中的“Peter”和另一个字段中的“Smith”更有意义。)
+Post 127.0.0.1:9200/article/_search
+{
+  "query": {
+    "multi_match" : {
+      "query":      "Peter Smith",
+      "type":       "best_fields",
+      "fields":     [ "author_first_name", "author_last_name" ]
+    }
+  }
+}
+
+=================================================================
+most_fields(当以不同方式查询包含相同文本的多个字段时，most_fields类型最有用。)
+Post 127.0.0.1:9200/article/_search
+{
+  "query": {
+    "multi_match" : {
+      "query":      "Peter Smith",
+      "type":       "most_fields",
+      "fields":     [ "author_first_name", "author_last_name" ]
+    }
+  }
+}
+
+=================================================================
+查询时权重提升(个别字段可以自动  boost （提升）权重 )
+Post 127.0.0.1:9200/article/_search
+{"query":{
+   	 "bool":{
+                "should":[
+			{
+				"match":{
+					"author_first_name":{
+						"query": "Peter Smith",
+                                                                                                               "boost": 2 
+					}
+				}
+
+		    },
+		    {
+		        "match":{
+					"author_last_name":"Peter Smith"
+				}
+		    }
+		]
+	}
+  }
+}
+
+=================================================================
+短语查询(相邻的多个词语)
+
+Post  localhost:9200/t_product/_search
+{
+  "query": {
+    "match_phrase": { "product_name": "Timberland Michael" }
+  }
+}
+
+=================================================================
+term 和terms精确值查找
+Post localhost:9200/t_product/_search
+{
+  "query": {
+      "terms" : {
+          "product_attrs.keyword":["horn-clear"]
+       }
+  },
+   "_source": ["product_id", "product_code"]
+}
+=================================================================
+
+Post localhost:9200/t_product/_search
+
+{
+	"query":{
+		"terms":{
+			"product_attrs.keyword":["horn","horn-clear"]
+		}
+	},
+            "_source": ["product_id", "product_code"],
+	"from":0,
+	"size":10
+}
+=================================================================
+Post localhost:9200/t_product/_search
+{
+	"query":{
+		"bool":{
+			
+     		"must":[
+     			{
+     				"term":{
+     				  "product_attrs.keyword":"horn"
+     				}
+     			},
+     			{
+     				"bool":
+		     	       {
+		     	       	   	"should":[
+						{
+						   "match":{
+						         "product_name":"Keolamphone"
+						       }
+						},
+						{
+						   "match":{
+							 "product_name":"Timberland"
+						         }
+						  }
+				     		]
+		     	       }
+     			}
+     		]
+		}
+	}
+}
+=================================================================
+bool 查询.must_not 用法.
+
+Post localhost:9200/t_product/_search
+{
+	"query":{
+		"bool":{
+			"must_not":[
+				{
+				"match":{
+					"product_attrs":"progressive"
+			    	}
+				}
+     		]
+		}
+	}
+}
+=================================================================
+
+Filter 是过滤数据，没有相关性评分,能够利用缓存来获得更好的性能, Query 有相关性评分。
+
+{
+	"query":{
+		"bool":{
+			"filter":{
+			    "match":{
+			    	"product_name":"Clear"
+			    }
+			}
+		}
+	}
+}
+// query 有相关性评分
+
+{
+	"query":{
+		"bool":{
+			"should":{
+			    "match":{
+			    	"product_name":"Clear"
+			    }
+			}
+		}
+	}
+}
+=================================================================
+//query filter range
+Post localhost:9200/t_product/_search
+{
+  "query": {
+    "bool": {
+      "filter": {
+        "range": {
+          "product_added": {
+            "lte": "2009-10-20 12:24:42"
+          }
+        }
+      }
+    }
+  }
+}
+=================================================================
+
+//query filter range+sort
+Post http://localhost:9200/_search
+{
+	"query":{
+		"range":{
+			"product_id":{
+				"lte":23938
+			}
+		}
+	},
+	"sort":{
+		"product_added":"desc"
+	}
+}
+
+
+=================================================================
+
+//query+aggs
+{   "query":{
+	   "bool":{ 
+                       "should":[   {  "match":{
+		 "product_attrs":"horn" } }]
+	   }   },
+	 "aggs" : {  "types_count" : {
+	      	         "terms" :{
+                       "field" : "product_id",
+                        "size" : 20000}    } } }
+
+=================================================================
+//query fuzzy模糊查询
+Get localhost:9200/t_product/_search
+{
+  "query": {
+    "bool":{
+    	"filter":{
+    		"multi_match": {
+                    "fields":  [ "product_seo", "title"],
+                    "query":     "mic",
+                    "fuzziness" : 2
+    }}}}}
+
+=================================================================
+
+//query wildcard  ?  匹配任何单个字符 ;* 可以匹配零个或多个字符，包括空字符。避免以*或开头的模式。这会增加查找匹配项所需的迭代次数并降低搜索性能
+Get localhost:9200/t_product/_search
+{
+  "query": {
+    "wildcard": {
+      "product_name": {
+        "value": "Clear*"
+      }
+     } }}
+=================================================================
+
+//query + hightlight
+Post localhost:9200/t_product/_search
+{
+  "query": {
+    "match": { "product_name": "Emporio" }
+  },
+  "highlight": {
+    "fields": {
+      "product_name": {}
+    }}
+}
+
+=================================================================
+更新数据
+Post http://localhost:9200/t_product/_doc/vtrdEn0BFekmGiSOasx6/_update
+{
+  "doc" : {
+      "product_id":1270,
+      "product_attrs":[
+                        "men",
+                        "women",
+                        "horn",
+                        "full-rim"
+            ]
+   }
+}
+
+=================================================================
+删除数据
+
+Post http://localhost:9200/t_product/_delete_by_query
+{
+  "query": {
+    "match": {
+      "product_id": 1270
+    }
+  }
+}
+
