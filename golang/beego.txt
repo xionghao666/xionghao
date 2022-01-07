@@ -1,0 +1,188 @@
+安装 go get github.com/astaxie/beego
+
+bee命令工具 go get github.com/beego/bee
+
+命令： bee new myproject   创建一个web项目
+     bee api myproject   创建一个api项目
+     bee run  运行并监控项目不用反复编译在执行
+
+
+
+路由：
+
+package routers
+
+import (
+    "quickstart/controllers"
+    "github.com/astaxie/beego"
+)
+
+func init() {
+    beego.Router("/", &controllers.MainController{})
+    beego.Router("/", &controllers.UserController{})
+}
+
+控制器：
+
+package controllers
+
+import (
+        "github.com/astaxie/beego"
+)
+
+type MainController struct {
+        beego.Controller
+}
+
+func (this *MainController) Get() {
+	//接收参数
+	pkgname := this.GetString("pkgname")
+    	content := this.GetString("content")
+        this.Data["Website"] = "beego.me"
+        this.Data["Email"] = "astaxie@gmail.com"
+        this.TplName = "index.tpl"	//如果用户不设置该参数，那么默认会去到模板目录的 Controller/<方法名>.tpl 查找
+	//this.Ctx.WriteString("hello")    直接输出字符串返回
+	//this.Ctx.Redirect(302, "/admin/index")   重定向
+
+	//json返回
+	//this.Data["json"] = "{\"ObjectId\":\"" + objectid + "\"}"
+	//this.ServeJSON()
+}
+
+参数接收方法：
+GetString(key string) string
+GetStrings(key string) []string
+GetInt(key string) (int64, error)
+GetBool(key string) (bool, error)
+GetFloat(key string) (float64, error)
+
+
+直接解析到结构体中：
+    u := user{}
+    if err := this.ParseForm(&u); err != nil {
+        //handle error
+    }
+
+
+session控制：
+
+在 main 入口函数中设置： beego.BConfig.WebConfig.Session.SessionOn = true
+或者配置文件配置：sessionon = true
+
+使用案例：
+func (this *MainController) Get() {
+    v := this.GetSession("asta")
+    if v == nil {
+        this.SetSession("asta", int(1))
+        this.Data["num"] = 0
+    } else {
+        this.SetSession("asta", v.(int)+1)
+        this.Data["num"] = v.(int)
+    }
+    this.TplName = "index.tpl"
+}
+
+session相关方法：
+SetSession(name string, value interface{})
+GetSession(name string) interface{}
+DelSession(name string)
+SessionRegenerateID()
+DestroySession()
+
+session自定义控制：
+sess:=this.StartSession()
+defer sess.SessionRelease()
+
+beego 默认会解析当前应用下的 conf/app.conf 文件：
+appname = beepkg
+httpaddr = "127.0.0.1"
+httpport = 9090
+mysqluser = "root"
+mysqlpass = "rootpass"
+
+获取配置信息
+beego.AppConfig.String("mysqluser")
+beego.AppConfig.String("mysqlpass")
+
+
+日志处理：
+beego.Emergency("this is emergency")
+beego.Alert("this is alert")
+beego.Critical("this is critical")
+beego.Error("this is error")
+beego.Warning("this is warning")
+beego.Notice("this is notice")
+beego.Informational("this is informational")
+beego.Debug("this is debug")
+
+
+ORM：
+安装 go get github.com/astaxie/beego/orm
+
+使用：
+package main
+
+import (
+    "fmt"
+    "github.com/astaxie/beego/orm"
+    _ "github.com/go-sql-driver/mysql" // import your used driver
+)
+
+// Model Struct
+type User struct {
+    Id   int
+    Name string `orm:"size(100)"`
+}
+
+func init() {
+    // set default database
+    orm.RegisterDataBase("default", "mysql", "username:password@tcp(127.0.0.1:3306)/db_name?charset=utf8", 30)
+
+    // register model
+    orm.RegisterModel(new(User))
+
+    // create table
+    orm.RunSyncdb("default", false, true)
+}
+
+func main() {
+    o := orm.NewOrm()
+
+    user := User{Name: "slene"}
+
+    // insert
+    id, err := o.Insert(&user)
+    fmt.Printf("ID: %d, ERR: %v\n", id, err)
+
+    // update
+    user.Name = "astaxie"
+    num, err := o.Update(&user)
+    fmt.Printf("NUM: %d, ERR: %v\n", num, err)
+
+    // read one
+    u := User{Id: user.Id}
+    err = o.Read(&u)
+    fmt.Printf("ERR: %v\n", err)
+
+    // delete
+    num, err = o.Delete(&u)
+    fmt.Printf("NUM: %d, ERR: %v\n", num, err)
+}
+
+原生SQL:
+o := orm.NewOrm()
+var r RawSeter
+r = o.Raw("UPDATE user SET name = ? WHERE name = ?", "testing", "slene")
+========================================================================
+Exec:
+
+res, err := o.Raw("UPDATE user SET name = ?", "your").Exec()
+if err == nil {
+    num, _ := res.RowsAffected()
+    fmt.Println("mysql row affected nums: ", num)
+}
+========================================================================
+QueryRow:
+
+var user User
+err := o.Raw("SELECT id, user_name FROM user WHERE id = ?", 1).QueryRow(&user)
