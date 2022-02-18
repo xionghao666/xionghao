@@ -1,0 +1,57 @@
+sync.Map 开箱即用，无需像 map 调用 make() 进行显示初始化。
+sync.Map 的 key 和 value 类型为空接口 interface{}，表示可存储任意类型的数据。
+
+包含5个方法：
+//删除操作
+func (m *Map) Delete(key interface{})
+
+//读操作
+func (m *Map) Load(key interface{}) (value interface{}, ok bool)
+
+//读取或写入。存在指定的 key 则读取，否则写入。actual为存在的 value 或新写入的 value，loaded 读操作返回true，写操作返回false
+func (m *Map) LoadOrStore(key, value interface{}) (actual interface{}, loaded bool)
+
+//写操作
+func (m *Map) Store(key, value interface{})
+
+//遍历
+func (m *Map) Range(f func(key, value interface{}) bool)
+
+==============================================================
+
+代码案例：
+var m sync.Map
+
+func main() {
+    
+    //写
+    m.Store("dablelv", "27")
+    m.Store("cat", "28")
+    
+    //读
+    v, ok := m.Load("dablelv")
+    fmt.Printf("Load: v, ok = %v, %v\n", v, ok) 
+   
+    //删除  
+    m.Delete("dablelv")
+
+    //读或写
+    v, ok = m.LoadOrStore("dablelv", "18")
+    fmt.Printf("LoadOrStore: v, ok = %v, %v\n", v, ok)
+
+    //遍历
+    //操作函数
+    f := func(key, value interface{}) bool {
+        fmt.Printf("Range: k, v = %v, %v\n", key, value)
+        return true
+    }   
+    m.Range(f)
+}
+
+==============================================================
+sync/atomic，原子操作
+5操作：加法（add）、比较并交换（compare and swap，简称 CAS）、加载（load）、存储（store）和交换（swap）
+支持6种数据类型： int32、int64、uint32、uint64、uintptr，以及unsafe包中的Pointer。
+
+atomic.Value类型是开箱即用的
+第一条规则，不能用原子值存储nil。第二条规则，我们向原子值存储的第一个值，决定了它今后能且只能存储哪一个类型的值。
