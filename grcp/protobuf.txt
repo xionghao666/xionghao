@@ -46,3 +46,12 @@ message HelloReply {
 ================================================================
 
 使用命令生成golang代码：protoc --go_out=plugins=grpc:. sample.proto
+
+
+gRPC vs. Restful API
+
+1.它们都使用http作为底层的传输协议(严格地说, gRPC使用的http2.0，而restful api则不一定
+2.gRPC可以通过protobuf来定义接口，从而可以有更加严格的接口约束条件
+3.通过protobuf可以将数据序列化为二进制编码，这会大幅减少需要传输的数据量，从而大幅提高性能
+4.gRPC可以方便地支持流式通信
+
