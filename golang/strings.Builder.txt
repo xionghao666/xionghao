@@ -1,0 +1,41 @@
+原生string类型的值是不可变的，那么就只能基于原字符串进行裁剪、拼接等操作，从而生成一个新的字符串。裁剪操作可以使用切片表达式；拼接操作可以用操作符+实现。
+因为string类型底层是数组，每次扩容都需要重新分配内存，性能是有损耗的。
+
+Builder值中有一个用于承载内容的容器（以下简称内容容器）。它是一个以byte为元素类型的切片。
+
+支持四种写入方法（byte 数组，byte， rune 或者 string）
+func (b *Builder) Write(p []byte) (int, error)
+func (b *Builder) WriteByte(c byte) error
+func (b *Builder) WriteRune(r rune) (int, error)
+func (b *Builder) WriteString(s string) (int, error)
+
+string.Builder 通过使用一个内部的 slice 来存储数据片段。当开发者调用写入方法的时候，数据实际上是被追加（append）到了其内部的 slice 上。
+
+strings.Builder 同样也提供了 Grow() 来支持预定义容量
+func (b *Builder) Grow(n int)
+
+strings.Builder不允许copy之后在写入，程序会崩溃
+案例：
+var b1 strings.Builder
+b1.WriteString("ABC")
+b2 := b1
+b2.WriteString("DEF") 
+// illegal use of non-zero Builder copied by value
+
+Rest()方法后允许copy
+
+
+*string+号拼接 和 strings.Builder bytes.Buffer 比较
+
+1.字符串在 Go 语言中是不可变类型，占用内存大小是固定的，当使用 + 拼接 2 个字符串时，生成一个新的字符串，那么就需要开辟一段新的空间，
+新空间的大小是原来两个字符串的大小之和。拼接第三个字符串时，再开辟一段新空间，新空间大小是三个字符串大小之和，以此类推。
+
+2.strings.Builder，bytes.Buffer，包括切片 []byte 的内存是以倍数申请的。例如，初始大小为 0，当第一次写入大小为 10 byte 的字符串时，
+则会申请大小为 16 byte 的内存（恰好大于 10 byte 的 2 的指数），第二次写入 10 byte 时，内存不够，则申请 32 byte 的内存，第三次写入内存足够，
+则不申请新的，以此类推。
+
+3.strings.Builder 和 bytes.Buffer 底层都是 []byte 数组，但 strings.Builder 性能比 bytes.Buffer 略快约 10% 。
+一个比较重要的区别在于，bytes.Buffer 转化为字符串时重新申请了一块空间，
+存放生成的字符串变量，而 strings.Builder 直接将底层的 []byte 转换成了字符串类型返回了回来。
+
+
